@@ -1,5 +1,6 @@
 package io.github.isharedoc.api.event;
 
+import java.io.Serializable;
 import java.util.Map;
 
 public record SqsEventRecord(
@@ -12,5 +13,5 @@ public record SqsEventRecord(
         String eventSource,
         String eventSourceARN,
         String awsRegion
-) {
+) implements Serializable {
 }
