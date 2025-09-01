@@ -1,6 +1,7 @@
 package io.github.isharedoc.api.event;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.JsonNode;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
 import java.io.Serializable;
@@ -15,9 +16,9 @@ public record DynamoStreamEventRecord(
 
     public record DynamoEventData(
             @JsonProperty("Keys")
-            Map<String, AttributeValue> keys,
+            Map<String, JsonNode> keys,
             @JsonProperty("OldImage")
-            Map<String, AttributeValue> oldImage
+            Map<String, JsonNode> oldImage
     ) implements Serializable {
     }
 

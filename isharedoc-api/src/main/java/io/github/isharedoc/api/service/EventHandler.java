@@ -105,13 +105,20 @@ public class EventHandler {
                 .map(DynamoStreamEventRecord.DynamoEventData::oldImage)
                 .filter(oldImageAttrs ->
                         oldImageAttrs.containsKey("file_key") && oldImageAttrs.containsKey("bucket_name"))
-                .map(oldImageAttrs -> {
-                    AttributeValue fileKey = oldImageAttrs.get("file_key");
-                    AttributeValue bucketName = oldImageAttrs.get("bucket_name");
-                    return DeleteObjectRequest.builder()
-                            .bucket(bucketName.s())
-                            .key(fileKey.s())
-                            .build();
+                .flatMap(oldImageAttrs -> {
+                    JsonNode fileKeyNode = oldImageAttrs.get("file_key");
+                    JsonNode bucketNameNode = oldImageAttrs.get("bucket_name");
+                    String fileKey = fileKeyNode.get("S").asText("");
+                    String bucketName = bucketNameNode.get("S").asText("");
+                    if (fileKey.isBlank() || bucketName.isBlank()) {
+                        return Optional.empty();
+                    }
+                    return Optional.of(
+                            DeleteObjectRequest.builder()
+                                    .bucket(bucketName)
+                                    .key(fileKey)
+                                    .build()
+                    );
                 });
         if (deleteObjectRequestOptional.isPresent()) {
             CompletableFuture<DeleteObjectResponse> deleteFuture = s3Client.deleteObject(
