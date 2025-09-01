@@ -42,6 +42,12 @@ Resources:
           Properties:
             Stream: !GetAtt ApiTable.StreamArn
             StartingPosition: LATEST
+            FilterCriteria:
+              Filters:
+                - Pattern: |
+                    {
+                      "eventName": ["REMOVE"]
+                    }
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ApiTable

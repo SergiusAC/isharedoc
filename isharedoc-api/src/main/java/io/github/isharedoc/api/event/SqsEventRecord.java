@@ -1,4 +1,4 @@
-package io.github.isharedoc.api.request;
+package io.github.isharedoc.api.event;
 
 import java.util.Map;
 

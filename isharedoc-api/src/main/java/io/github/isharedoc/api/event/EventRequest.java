@@ -1,11 +1,11 @@
-package io.github.isharedoc.api.request;
+package io.github.isharedoc.api.event;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 
-public record SqsEventRequest(
+public record EventRequest(
         @JsonProperty("Records")
-        List<SqsEventRecord> records
+        List<String> records
 ) {
 }

@@ -2,9 +2,9 @@ package io.github.isharedoc.api.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.github.isharedoc.api.request.SqsEventRequest;
+import io.github.isharedoc.api.event.EventRequest;
 import io.github.isharedoc.api.response.GeneralResponse;
-import io.github.isharedoc.api.service.SqsEventHandler;
+import io.github.isharedoc.api.service.EventHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -20,14 +20,14 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 public class EventsController {
 
-    private final SqsEventHandler sqsEventHandler;
+    private final EventHandler eventHandler;
     private final ObjectMapper objectMapper;
 
     @PostMapping
     public Mono<ResponseEntity<GeneralResponse<String>>> processEvents(@RequestBody String body) throws JsonProcessingException {
-        log.info("processEvents body={}", body);
-        SqsEventRequest sqsEventRequest = objectMapper.readValue(body, SqsEventRequest.class);
-        return sqsEventHandler.handle(sqsEventRequest.records())
+        log.info("start processEvents body={}", body);
+        EventRequest eventRequest = objectMapper.readValue(body, EventRequest.class);
+        return eventHandler.handle(eventRequest.records())
                 .flatMap(unused -> GeneralResponse.ok("OK"));
     }
 
