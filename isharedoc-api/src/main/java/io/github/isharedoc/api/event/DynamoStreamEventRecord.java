@@ -2,7 +2,6 @@ package io.github.isharedoc.api.event;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
 import java.io.Serializable;
 import java.util.Map;
