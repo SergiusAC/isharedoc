@@ -37,6 +37,11 @@ Resources:
           Type: SQS
           Properties:
             Queue: !GetAtt ApiQueue.Arn
+        DynamoDbStreamEvent:
+          Type: DynamoDB
+          Properties:
+            Stream: !GetAtt ApiTable.StreamArn
+            StartingPosition: LATEST
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ApiTable
@@ -46,6 +51,8 @@ Resources:
             QueueName: !GetAtt ApiQueue.QueueName
         - SQSPollerPolicy:
             QueueName: !GetAtt ApiQueue.QueueName
+        - DynamoDBStreamReadPolicy:
+            TableName: !Ref ApiTable
 
   ## API Gateway
   ApiGW:
@@ -76,6 +83,8 @@ Resources:
       TimeToLiveSpecification:
         AttributeName: expires_at
         Enabled: true
+      StreamSpecification:
+        StreamViewType: OLD_IMAGE
 
   ## S3 Bucket
   ApiBucket:
