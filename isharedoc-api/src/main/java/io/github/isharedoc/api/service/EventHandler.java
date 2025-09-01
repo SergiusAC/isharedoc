@@ -1,6 +1,7 @@
 package io.github.isharedoc.api.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.isharedoc.api.config.AppProps;
 import io.github.isharedoc.api.event.DeleteFileMetadataEvent;
@@ -21,6 +22,7 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectResponse;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 @Slf4j
@@ -34,28 +36,30 @@ public class EventHandler {
     private final AppProps appProps;
     private final FileMetadataFinder fileMetadataFinder;
 
-    public Mono<Void> handle(List<String> records) {
+    public Mono<Void> handle(List<JsonNode> records) {
         return Flux.fromStream(records.stream())
-                .flatMap(record -> {
+                .flatMap(jsonNode -> {
                     try {
-                        EventSourceRecord eventSourceRecord = objectMapper.readValue(
-                                record, EventSourceRecord.class
+                        EventSourceRecord eventSourceRecord = objectMapper.treeToValue(
+                                jsonNode, EventSourceRecord.class
                         );
-                        if ("aws.sqs".equals(eventSourceRecord.eventSource())) {
-                            SqsEventRecord sqsEventRecord = objectMapper.readValue(
-                                    record, SqsEventRecord.class
+                        if ("aws:sqs".equals(eventSourceRecord.eventSource())) {
+                            SqsEventRecord sqsEventRecord = objectMapper.treeToValue(
+                                    jsonNode, SqsEventRecord.class
                             );
                             return this.handleSqsRecord(sqsEventRecord);
                         }
                         if ("aws:dynamodb".equals(eventSourceRecord.eventSource())) {
-                            DynamoStreamEventRecord dynamoStreamEventRecord = objectMapper.readValue(
-                                    record, DynamoStreamEventRecord.class
+                            DynamoStreamEventRecord dynamoStreamEventRecord = objectMapper.treeToValue(
+                                    jsonNode, DynamoStreamEventRecord.class
                             );
                             return this.handleDynamoStreamRecord(dynamoStreamEventRecord);
                         }
                         return Mono.empty();
                     } catch (JsonProcessingException ex) {
-                        throw new IllegalStateException("failed to deserialize event: %s".formatted(record), ex);
+                        throw new IllegalStateException(
+                                "failed to deserialize record=%s".formatted(jsonNode.toString()), ex
+                        );
                     }
                 })
                 .then();
@@ -96,14 +100,27 @@ public class EventHandler {
         if (!"REMOVE".equals(eventRecord.eventName())) {
             return Mono.empty();
         }
-        AttributeValue fileKey = eventRecord.dynamodb().oldImage().get("file_key");
-        AttributeValue bucketName = eventRecord.dynamodb().oldImage().get("bucket_name");
-        DeleteObjectRequest deleteObjectRequest = DeleteObjectRequest.builder()
-                .bucket(bucketName.s())
-                .key(fileKey.s())
-                .build();
-        CompletableFuture<DeleteObjectResponse> deleteFuture = s3Client.deleteObject(deleteObjectRequest);
-        return Mono.fromFuture(deleteFuture).then();
+        Optional<DeleteObjectRequest> deleteObjectRequestOptional = Optional.of(eventRecord)
+                .map(DynamoStreamEventRecord::dynamodb)
+                .map(DynamoStreamEventRecord.DynamoEventData::oldImage)
+                .filter(oldImageAttrs ->
+                        oldImageAttrs.containsKey("file_key") && oldImageAttrs.containsKey("bucket_name"))
+                .map(oldImageAttrs -> {
+                    AttributeValue fileKey = oldImageAttrs.get("file_key");
+                    AttributeValue bucketName = oldImageAttrs.get("bucket_name");
+                    return DeleteObjectRequest.builder()
+                            .bucket(bucketName.s())
+                            .key(fileKey.s())
+                            .build();
+                });
+        if (deleteObjectRequestOptional.isPresent()) {
+            CompletableFuture<DeleteObjectResponse> deleteFuture = s3Client.deleteObject(
+                    deleteObjectRequestOptional.get()
+            );
+            return Mono.fromFuture(deleteFuture).then();
+        } else {
+            return Mono.empty();
+        }
     }
 
 }
