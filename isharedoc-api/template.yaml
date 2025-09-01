@@ -1,0 +1,112 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: IShareDocAPIFunction SAM Template
+
+Parameters:
+  ImageUri:
+    Type: String
+
+Resources:
+  IShareDocApiFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      DockerContext: ./
+      Dockerfile: Dockerfile
+    Properties:
+      PackageType: Image
+      ImageUri: !Ref ImageUri
+      MemorySize: 512
+      Timeout: 60
+      AutoPublishAlias: live
+      Environment:
+        Variables:
+          RUST_LOG: info
+          ASYNC_INIT: true
+          READINESS_CHECK_PATH: /health
+          MY_AWS_TABLE_NAME: !Ref IShareDocTable
+          MY_AWS_BUCKET_NAME: !Ref IShareDocBucket
+          MY_AWS_SQS_URL: !Ref IShareDocQueue
+      Events:
+        ApiEvent:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref IShareDocApiGW
+            Path: /{proxy+}
+            Method: ANY
+        SQSEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt IShareDocQueue.Arn
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref IShareDocTable
+        - S3CrudPolicy:
+            BucketName: !Ref IShareDocBucket
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt IShareDocQueue.QueueName
+        - SQSPollerPolicy:
+            QueueName: !GetAtt IShareDocQueue.QueueName
+
+  ## API Gateway
+  IShareDocApiGW:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      Name: !Sub "${AWS::StackName}-api-gw"
+      StageName: "dev"
+      CorsConfiguration:
+        AllowMethods:
+          - "*"
+        AllowOrigins:
+          - "*"
+
+  ## DynamoDB Table
+  IShareDocTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${AWS::StackName}-file-metadata"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: file_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: file_id
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: expires_at
+        Enabled: true
+
+  ## S3 Bucket
+  IShareDocBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${AWS::StackName}-bucket"
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireOldObjects
+            Status: Enabled
+            ExpirationInDays: 7
+            Prefix: ""  # Applies to all objects
+
+  ## SQS Queue
+  IShareDocQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "${AWS::StackName}-queue"
+      VisibilityTimeout: 60
+
+Outputs:
+  IShareDocApi:
+    Description: "API Gateway endpoint URL"
+    Value: !Sub "https://${IShareDocApiGW}.execute-api.${AWS::Region}.${AWS::URLSuffix}/"
+  FunctionArn:
+    Description: "Lambda function ARN"
+    Value: !GetAtt IShareDocApiFunction.Arn
+  TableName:
+    Description: "DynamoDB table name"
+    Value: !Ref IShareDocTable
+  BucketName:
+    Description: "S3 bucket name"
+    Value: !Ref IShareDocBucket
+  QueueUrl:
+    Description: "SQS Queue URL"
+    Value: !Ref IShareDocQueue

@@ -1,0 +1,14 @@
+<configuration>
+    <!--  Choosing appender  -->
+    <variable name="LOG_APPENDER" value="${APPLICATION_LOG_APPENDER:-JSON_OUT}"/>
+
+    <appender name="JSON_OUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <includeMdc>true</includeMdc>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="${LOG_APPENDER}"/>
+    </root>
+</configuration>

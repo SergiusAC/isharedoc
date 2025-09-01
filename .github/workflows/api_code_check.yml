@@ -1,0 +1,27 @@
+name: Code Check
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'isharedoc-api/*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./isharedoc-api
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      
+      - name: Setup JDK 21
+        uses: actions/setup-java@v3
+        with:
+          distribution: corretto
+          java-version: 21
+      
+      - name: Mavin compile and verify
+        run: mvn clean verify -B

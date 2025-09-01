@@ -1,0 +1,66 @@
+name: Deploy Web App
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'isharedoc-web/*'
+  workflow_dispatch:
+
+env:
+  STACK_NAME: dev-isharedoc-web-stack
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./isharedoc-web
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Deploy SAM stack
+        run: |
+          sam deploy \
+            --stack-name $STACK_NAME \
+            --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset
+
+      - name: Extract outputs (S3 + CloudFront IDs)
+        id: sam-outputs
+        run: |
+          OUTPUTS=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query "Stacks[0].Outputs" --output json | jq -c)
+          echo "outputs=$OUTPUTS" >> $GITHUB_OUTPUT
+
+      - name: Sync build to S3
+        run: |
+          BUCKET=$(echo '${{ steps.sam-outputs.outputs.outputs }}' | jq -r '.[] | select(.OutputKey=="IShareDocWebBucketName") | .OutputValue')
+          aws s3 sync ./dist s3://$BUCKET --delete
+
+      - name: Invalidate CloudFront cache
+        run: |
+          DISTRIBUTION=$(echo '${{ steps.sam-outputs.outputs.outputs }}' | jq -r '.[] | select(.OutputKey=="IShareDocWebDistributionId") | .OutputValue')
+          aws cloudfront create-invalidation \
+            --distribution-id $DISTRIBUTION \
+            --paths "/*"

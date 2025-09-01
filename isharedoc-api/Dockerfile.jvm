@@ -1,0 +1,12 @@
+FROM public.ecr.aws/sam/build-java21:latest as build-image
+WORKDIR "/task"
+COPY src src/
+COPY pom.xml ./
+RUN mvn -q -B clean package -DskipTests
+
+FROM public.ecr.aws/docker/library/amazoncorretto:21
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
+WORKDIR /opt
+COPY --from=build-image /task/target/isharedoc-api-0.0.1-SNAPSHOT.jar /opt/app.jar
+CMD ["java", "-jar", "app.jar"]
+# CMD ["java", "-XX:+ExitOnOutOfMemoryError", "-XX:MaxRAMPercentage=75", "-jar", "app.jar"]

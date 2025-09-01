@@ -1,0 +1,59 @@
+name: Build and Deploy API
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'isharedoc-api/*'
+  workflow_dispatch:
+
+env:
+  ECR_REPO: isharedoc/api
+  STACK_NAME: dev-isharedoc-api-stack
+
+jobs:
+  build-push-deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./isharedoc-api
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          aws-access-key-id: ${{ secrets['AWS_ACCESS_KEY_ID'] }}
+          aws-secret-access-key: ${{ secrets['AWS_SECRET_ACCESS_KEY'] }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Shorten SHA
+        id: shorten_sha
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Login to Amazon ECR
+        id: login
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build Docker image
+        id: build
+        run: |
+          IMAGE_URI=${{ steps.login.outputs.registry }}/${ECR_REPO}:dev-${{ steps.shorten_sha.outputs.sha_short }}
+          docker build -t $IMAGE_URI .
+          echo "image_uri=$IMAGE_URI" >> $GITHUB_OUTPUT
+
+      - name: Push to ECR
+        run: docker push ${{ steps.build.outputs.image_uri }}
+
+      - name: SAM Deploy
+        run: |
+          IMAGE_URI=${{ steps.build.outputs.image_uri }};
+          sam deploy \
+            --stack-name $STACK_NAME \
+            --image-repository $IMAGE_URI \
+            --capabilities CAPABILITY_IAM \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --parameter-overrides ImageUri=$IMAGE_URI
