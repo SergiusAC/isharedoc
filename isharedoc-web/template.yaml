@@ -3,7 +3,7 @@ Transform: AWS::Serverless-2016-10-31
 Description: React + Vite frontend hosted on S3 with CloudFront
 
 Resources:
-  IShareDocWebBucket:
+  WebBucket:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Sub "${AWS::StackName}-web"
@@ -16,10 +16,10 @@ Resources:
         IndexDocument: index.html
         ErrorDocument: index.html  # SPA routing
 
-  IShareDocWebBucketPolicy:
+  WebBucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
-      Bucket: !Ref IShareDocWebBucket
+      Bucket: !Ref WebBucket
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -28,12 +28,12 @@ Resources:
             Principal:
               Service: cloudfront.amazonaws.com
             Action: s3:GetObject
-            Resource: !Sub "${IShareDocWebBucket.Arn}/*"
+            Resource: !Sub "${WebBucket.Arn}/*"
             Condition:
               StringEquals:
-                AWS:SourceArn: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${IShareDocWebDistribution}
+                AWS:SourceArn: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${WebDistribution}
 
-  IShareDocWebDistribution:
+  WebDistribution:
     Type: AWS::CloudFront::Distribution
     Properties:
       DistributionConfig:
@@ -41,8 +41,8 @@ Resources:
         DefaultRootObject: index.html
         Origins:
           - Id: !Sub "${AWS::StackName}-origin"
-            DomainName: !GetAtt IShareDocWebBucket.RegionalDomainName
-            OriginAccessControlId: !GetAtt IShareDocWebOriginAccessControl.Id
+            DomainName: !GetAtt WebBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt WebOriginAccessControl.Id
             S3OriginConfig: {}
         DefaultCacheBehavior:
           TargetOriginId: !Sub "${AWS::StackName}-origin"
@@ -61,7 +61,7 @@ Resources:
             ResponsePagePath: /index.html
             ResponseCode: 200
   
-  IShareDocWebOriginAccessControl:
+  WebOriginAccessControl:
     Type: AWS::CloudFront::OriginAccessControl
     Properties:
       OriginAccessControlConfig:
@@ -73,16 +73,16 @@ Resources:
 Outputs:
   WebsiteURL:
     Description: Direct S3 Website URL
-    Value: !GetAtt IShareDocWebBucket.WebsiteURL
+    Value: !GetAtt WebBucket.WebsiteURL
 
   CloudFrontURL:
     Description: CloudFront Distribution URL
-    Value: !Sub "https://${IShareDocWebDistribution.DomainName}"
+    Value: !Sub "https://${WebDistribution.DomainName}"
 
-  IShareDocWebBucketName:
+  WebBucketName:
     Description: "S3 bucket for frontend"
-    Value: !Ref IShareDocWebBucket
+    Value: !Ref WebBucket
 
-  IShareDocWebDistributionId:
+  WebDistributionId:
     Description: "CloudFront distribution ID"
-    Value: !Ref IShareDocWebDistribution
+    Value: !Ref WebDistribution

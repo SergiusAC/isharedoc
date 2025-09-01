@@ -1,13 +1,13 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: IShareDocAPIFunction SAM Template
+Description: SAM Template for iShareDoc API
 
 Parameters:
   ImageUri:
     Type: String
 
 Resources:
-  IShareDocApiFunction:
+  ApiFunction:
     Type: AWS::Serverless::Function
     Metadata:
       DockerContext: ./
@@ -16,43 +16,43 @@ Resources:
       PackageType: Image
       ImageUri: !Ref ImageUri
       MemorySize: 512
-      Timeout: 60
+      Timeout: 30
       AutoPublishAlias: live
       Environment:
         Variables:
           RUST_LOG: info
           ASYNC_INIT: true
           READINESS_CHECK_PATH: /health
-          MY_AWS_TABLE_NAME: !Ref IShareDocTable
-          MY_AWS_BUCKET_NAME: !Ref IShareDocBucket
-          MY_AWS_SQS_URL: !Ref IShareDocQueue
+          MY_AWS_TABLE_NAME: !Ref ApiTable
+          MY_AWS_BUCKET_NAME: !Ref ApiBucket
+          MY_AWS_SQS_URL: !Ref ApiQueue
       Events:
         ApiEvent:
           Type: HttpApi
           Properties:
-            ApiId: !Ref IShareDocApiGW
+            ApiId: !Ref ApiGW
             Path: /{proxy+}
             Method: ANY
         SQSEvent:
           Type: SQS
           Properties:
-            Queue: !GetAtt IShareDocQueue.Arn
+            Queue: !GetAtt ApiQueue.Arn
       Policies:
         - DynamoDBCrudPolicy:
-            TableName: !Ref IShareDocTable
+            TableName: !Ref ApiTable
         - S3CrudPolicy:
-            BucketName: !Ref IShareDocBucket
+            BucketName: !Ref ApiBucket
         - SQSSendMessagePolicy:
-            QueueName: !GetAtt IShareDocQueue.QueueName
+            QueueName: !GetAtt ApiQueue.QueueName
         - SQSPollerPolicy:
-            QueueName: !GetAtt IShareDocQueue.QueueName
+            QueueName: !GetAtt ApiQueue.QueueName
 
   ## API Gateway
-  IShareDocApiGW:
+  ApiGW:
     Type: AWS::Serverless::HttpApi
     Properties:
-      Name: !Sub "${AWS::StackName}-api-gw"
-      StageName: "dev"
+      Name: !Sub "${AWS::StackName}-apigateway"
+      StageName: "$default"
       CorsConfiguration:
         AllowMethods:
           - "*"
@@ -60,10 +60,10 @@ Resources:
           - "*"
 
   ## DynamoDB Table
-  IShareDocTable:
+  ApiTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub "${AWS::StackName}-file-metadata"
+      TableName: !Sub "${AWS::StackName}-table"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: file_id
@@ -76,7 +76,7 @@ Resources:
         Enabled: true
 
   ## S3 Bucket
-  IShareDocBucket:
+  ApiBucket:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Sub "${AWS::StackName}-bucket"
@@ -88,25 +88,25 @@ Resources:
             Prefix: ""  # Applies to all objects
 
   ## SQS Queue
-  IShareDocQueue:
+  ApiQueue:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub "${AWS::StackName}-queue"
-      VisibilityTimeout: 60
+      VisibilityTimeout: 30
 
 Outputs:
-  IShareDocApi:
+  ApiUrl:
     Description: "API Gateway endpoint URL"
-    Value: !Sub "https://${IShareDocApiGW}.execute-api.${AWS::Region}.${AWS::URLSuffix}/"
+    Value: !Sub "https://${ApiGW}.execute-api.${AWS::Region}.${AWS::URLSuffix}/"
   FunctionArn:
     Description: "Lambda function ARN"
-    Value: !GetAtt IShareDocApiFunction.Arn
+    Value: !GetAtt ApiFunction.Arn
   TableName:
     Description: "DynamoDB table name"
-    Value: !Ref IShareDocTable
+    Value: !Ref ApiTable
   BucketName:
     Description: "S3 bucket name"
-    Value: !Ref IShareDocBucket
+    Value: !Ref ApiBucket
   QueueUrl:
     Description: "SQS Queue URL"
-    Value: !Ref IShareDocQueue
+    Value: !Ref ApiQueue

@@ -55,12 +55,12 @@ jobs:
 
       - name: Sync build to S3
         run: |
-          BUCKET=$(echo '${{ steps.sam-outputs.outputs.outputs }}' | jq -r '.[] | select(.OutputKey=="IShareDocWebBucketName") | .OutputValue')
+          BUCKET=$(echo '${{ steps.sam-outputs.outputs.outputs }}' | jq -r '.[] | select(.OutputKey=="WebBucketName") | .OutputValue')
           aws s3 sync ./dist s3://$BUCKET --delete
 
       - name: Invalidate CloudFront cache
         run: |
-          DISTRIBUTION=$(echo '${{ steps.sam-outputs.outputs.outputs }}' | jq -r '.[] | select(.OutputKey=="IShareDocWebDistributionId") | .OutputValue')
+          DISTRIBUTION=$(echo '${{ steps.sam-outputs.outputs.outputs }}' | jq -r '.[] | select(.OutputKey=="WebDistributionId") | .OutputValue')
           aws cloudfront create-invalidation \
             --distribution-id $DISTRIBUTION \
             --paths "/*"
