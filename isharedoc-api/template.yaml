@@ -57,6 +57,8 @@ Resources:
         AllowMethods:
           - "*"
         AllowOrigins:
+          - "*"  # Change in production
+        AllowHeaders:
           - "*"
 
   ## DynamoDB Table
@@ -86,6 +88,16 @@ Resources:
             Status: Enabled
             ExpirationInDays: 7
             Prefix: ""  # Applies to all objects
+      CorsConfiguration:
+        CorsRules:
+          - AllowedOrigins:
+              - "*"  # Change in production
+            AllowedMethods:
+              - GET
+              - PUT
+              - HEAD
+            AllowedHeaders:
+              - "*"
 
   ## SQS Queue
   ApiQueue:
