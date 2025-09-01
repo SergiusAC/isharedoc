@@ -53,7 +53,7 @@ Resources:
             QueueName: !GetAtt ApiQueue.QueueName
         - DynamoDBStreamReadPolicy:
             TableName: !Ref ApiTable
-            StreamName: !Select [3, !Split ["/", !GetAtt Table.StreamArn]]
+            StreamName: !Select [3, !Split ["/", !GetAtt ApiTable.StreamArn]]
 
   ## API Gateway
   ApiGW:
