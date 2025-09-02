@@ -1,30 +1,47 @@
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { downloadService } from "@/services/downloadService";
-import { FileKey, Lock } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router";
+import DownloadCard, { type DownloadSubmitData } from "./components/DownloadCard";
+import { useState } from "react";
+import MyAlertDialog from "./components/MyAlertDialog";
+import type { GenerateDownloadUrlRequest, FileMetadatResponse } from "@/services/models";
+import { AlertDialogAction, AlertDialogCancel } from "@/components/ui/alert-dialog";
 
 const DownloadPage = () => {
-  const [searchParams] = useSearchParams();
-  const [formFileId, setFormFileId] = useState("");
-  const [password, setPassword] = useState("");
+  const [fileMetadata, setFileMetadata] = useState<FileMetadatResponse>();
+  const [promptDialogOpen, setPromptDialogOpen] = useState(false);
+  const [downloadRequest, setDownloadRequest] = useState<GenerateDownloadUrlRequest>();
   const [downloading, setDownloading] = useState(false);
 
-  useEffect(() => {
-    if (searchParams.get("fileId")) {
-      setFormFileId(searchParams.get("fileId")!)
+  const handleSubmit = async (data: DownloadSubmitData) => {
+    setDownloading(true);
+    try {
+      setDownloadRequest({
+        fileId: data.fileId,
+        secretKey: data.password
+      });
+      const fileMetadat = await downloadService.getFileMetadata({
+        fileId: data.fileId,
+        secretKey: data.password,
+      });
+      setFileMetadata(fileMetadat);
+      setPromptDialogOpen(true);
+    } catch (err) {
+      console.error("Upload failed", err);
+      alert("Upload failed: " + (err as Error).message)
+    } finally {
+      setDownloading(false);
     }
-  }, [searchParams])
+  }
 
-  const handleDownload = async () => {
+  const handleStartDownload = async () => {
+    if (!downloadRequest) return;
+    setPromptDialogOpen(false);
     setDownloading(true);
     try {
       await downloadService.download({
-        fileId: formFileId,
-        secretKey: password,
-      })
+        fileId: downloadRequest.fileId,
+        secretKey: downloadRequest.secretKey
+      });
+      setDownloadRequest(undefined);
     } catch (err) {
       console.error("Upload failed", err);
       alert("Upload failed: " + (err as Error).message)
@@ -34,49 +51,27 @@ const DownloadPage = () => {
   }
 
   return <>
-    <Card className="w-full max-w-lg shadow-xl rounded-2xl">
-      <CardHeader>
-        <CardTitle className="text-xl font-semibold text-center">
-          File Downloading
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {/* File ID  */}
-        <div className="flex items-center gap-2 mb-4">
-          {/* <Lock className="w-5 h-5 text-gray-500" /> */}
-          <FileKey className="w-5 h-5 text-gray-500" />
-          <Input
-            type="text"
-            placeholder="File ID"
-            value={formFileId}
-            onChange={(e) => setFormFileId(e.target.value)}
-            className="flex-1"
-            required
-          />
-        </div>
-        {/* Protection Password  */}
-        <div className="flex items-center gap-2 mb-4">
-          <Lock className="w-5 h-5 text-gray-500" />
-          <Input
-            type="password"
-            placeholder="Protection Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="flex-1"
-            required
-          />
-        </div>
-
-        {/* Download Button  */}
-        <Button
-          onClick={handleDownload}
-          disabled={!formFileId || !password}
-          className="w-full"
-        >
-          {downloading ? "Downloading..." : "Download"}
-        </Button>
-      </CardContent>
-    </Card>
+    <DownloadCard onSubmit={handleSubmit} downloading={downloading} />
+    <MyAlertDialog 
+        isDialogOpen={promptDialogOpen} 
+        setIsDialogOpen={setPromptDialogOpen} 
+        title="✅ Download Permitted"
+        content={<>
+          <div className="space-y-2">
+            <p><span className="font-semibold">You are about to download the next file.</span></p>
+            <p><span className="font-semibold">File ID:</span> {fileMetadata?.fileId}</p>
+            <p><span className="font-semibold">Filename:</span> {fileMetadata?.filename}</p>
+          </div>
+        </>}
+        footer={<>
+          <AlertDialogAction onClick={handleStartDownload}>
+            Download
+          </AlertDialogAction>
+          <AlertDialogCancel>
+            Close
+          </AlertDialogCancel>
+        </>}
+      />
   </>;
 };
 

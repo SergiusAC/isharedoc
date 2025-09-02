@@ -1,11 +1,11 @@
-name: Deploy Web App
+name: Web Deploy
 
 on:
   push:
     branches:
       - main
     paths:
-      - 'isharedoc-web/*'
+      - 'isharedoc-web/**'
   workflow_dispatch:
 
 env:

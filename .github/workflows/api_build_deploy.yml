@@ -1,11 +1,11 @@
-name: Build and Deploy API
+name: API Deploy
 
 on:
   push:
     branches:
       - main
     paths:
-      - 'isharedoc-api/*'
+      - 'isharedoc-api/**'
   workflow_dispatch:
 
 env:

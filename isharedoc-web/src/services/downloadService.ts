@@ -4,8 +4,7 @@ const API_URL = import.meta.env.VITE_BASE_API_URL;
 
 export const downloadService = {
 
-  async download(request: GenerateDownloadUrlRequest): Promise<void> {
-    // Get file metadata to retrieve filename
+  async getFileMetadata(request: GenerateDownloadUrlRequest): Promise<FileMetadatResponse> {
     const metadatResponse = await fetch(
       `${API_URL}/presigned-urls/file-metadata?fileId=${request.fileId}&secretKey=${request.secretKey}`, 
       {
@@ -13,7 +12,6 @@ export const downloadService = {
         mode: "cors",      
       }
     );
-
     const parsedMetadata: GeneralResponse<FileMetadatResponse> = await this._parseResponseFileMetadata(metadatResponse);
 
     if (!metadatResponse.ok) {
@@ -23,6 +21,13 @@ export const downloadService = {
         throw new Error("Backend error");
       }  
     }
+
+    return parsedMetadata.data;
+  },
+
+  async download(request: GenerateDownloadUrlRequest): Promise<void> {
+    // Get file metadata to retrieve filename
+    const fileMetadata: FileMetadatResponse = await this.getFileMetadata(request);
 
     // Request presigned URL
     const presignedUrlResponse = await fetch(
@@ -69,7 +74,7 @@ export const downloadService = {
     // Auto-download
     const a = document.createElement("a");
     a.href = url;
-    a.download = parsedMetadata.data.filename;
+    a.download = fileMetadata.filename;
     a.click();
     a.remove();
   },

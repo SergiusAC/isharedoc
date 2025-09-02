@@ -1,11 +1,11 @@
-name: Code Check
+name: API Code Check
 
 on:
   pull_request:
     branches:
       - main
     paths:
-      - 'isharedoc-api/*'
+      - 'isharedoc-api/**'
 
 jobs:
   build:

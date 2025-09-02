@@ -1,4 +1,4 @@
-import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import type { ReactNode } from "react";
 import type React from "react";
 
@@ -7,9 +7,10 @@ interface MyAlertDialogProps {
   setIsDialogOpen: (value: boolean) => void;
   title: string;
   content: ReactNode;
+  footer: ReactNode;
 }
 
-const MyAlertDialog: React.FC<MyAlertDialogProps> = ({isDialogOpen, setIsDialogOpen, title, content}) => {
+const MyAlertDialog: React.FC<MyAlertDialogProps> = ({isDialogOpen, setIsDialogOpen, title, content, footer}) => {
   return <>
     <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
       <AlertDialogContent>
@@ -20,9 +21,7 @@ const MyAlertDialog: React.FC<MyAlertDialogProps> = ({isDialogOpen, setIsDialogO
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogAction onClick={() => setIsDialogOpen(false)}>
-            Close
-          </AlertDialogAction>
+          {footer}
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
