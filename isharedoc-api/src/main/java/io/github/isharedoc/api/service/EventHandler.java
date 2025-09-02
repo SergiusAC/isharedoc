@@ -14,7 +14,6 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.DeleteItemResponse;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
@@ -102,7 +101,7 @@ public class EventHandler {
         }
         Optional<DeleteObjectRequest> deleteObjectRequestOptional = Optional.of(eventRecord)
                 .map(DynamoStreamEventRecord::dynamodb)
-                .map(DynamoStreamEventRecord.DynamoEventData::oldImage)
+                .map(DynamoStreamEventRecord.EventData::oldImage)
                 .filter(oldImageAttrs ->
                         oldImageAttrs.containsKey("file_key") && oldImageAttrs.containsKey("bucket_name"))
                 .flatMap(oldImageAttrs -> {

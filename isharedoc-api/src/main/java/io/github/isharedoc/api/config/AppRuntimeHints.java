@@ -15,7 +15,7 @@ public class AppRuntimeHints implements RuntimeHintsRegistrar {
         hints.serialization().registerType(DynamoStreamEventRecord.class);
         hints.serialization().registerType(DeleteFileMetadataEvent.class);
         hints.reflection().registerType(DynamoStreamEventRecord.class, TypeHint.Builder::withMembers);
-        hints.reflection().registerType(DynamoStreamEventRecord.DynamoEventData.class, TypeHint.Builder::withMembers);
+        hints.reflection().registerType(DynamoStreamEventRecord.EventData.class, TypeHint.Builder::withMembers);
     }
 
 }
