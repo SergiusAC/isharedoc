@@ -33,7 +33,7 @@ public class EventHandler {
     private final DynamoDbAsyncClient dynamoClient;
     private final S3AsyncClient s3Client;
     private final AppProps appProps;
-    private final FileMetadataFinder fileMetadataFinder;
+    private final FileMetadataService fileMetadataService;
 
     public Mono<Void> handle(List<JsonNode> records) {
         return Flux.fromStream(records.stream())
@@ -71,7 +71,7 @@ public class EventHandler {
                     messageBody, DeleteFileMetadataEvent.class
             );
             String fileId = deleteFileMetadataEvent.fileId();
-            return fileMetadataFinder.findById(fileId)
+            return fileMetadataService.getById(fileId)
                     .flatMap(fileMetadataItem -> {
                         DeleteItemRequest deleteItemRequest = DeleteItemRequest.builder()
                                 .tableName(appProps.awsTableName())

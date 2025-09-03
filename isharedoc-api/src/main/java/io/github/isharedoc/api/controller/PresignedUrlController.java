@@ -32,9 +32,4 @@ public class PresignedUrlController {
         return service.generateDownloadUrl(request).flatMap(GeneralResponse::ok);
     }
 
-    @GetMapping("/file-metadata")
-    public Mono<ResponseEntity<GeneralResponse<FileMetadataResponse>>> getFileMetadata(@RequestParam String fileId) {
-        return service.getFileMetadata(fileId).flatMap(GeneralResponse::ok);
-    }
-
 }

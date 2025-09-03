@@ -12,7 +12,7 @@ public record GenerateUploadUrlRequest(
         String filename,
 
         @NotBlank
-        String secretKey,
+        String protectionPassword,
 
         @Min(1)
         @Max(3600)

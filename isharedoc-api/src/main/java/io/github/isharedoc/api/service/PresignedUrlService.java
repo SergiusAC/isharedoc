@@ -10,8 +10,8 @@ import io.github.isharedoc.api.request.GenerateUploadUrlRequest;
 import io.github.isharedoc.api.response.FileMetadataResponse;
 import io.github.isharedoc.api.response.GenerateDownloadUrlResponse;
 import io.github.isharedoc.api.response.GenerateUploadUrlResponse;
-import io.github.isharedoc.api.util.CryptoUtils;
 import io.github.isharedoc.api.util.CustomRandomUtils;
+import io.github.isharedoc.api.util.SseCustomerKeyUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -49,19 +49,13 @@ public class PresignedUrlService {
     private final AppProps appProps;
     private final ObjectMapper objectMapper;
 
-    private final FileMetadataFinder fileMetadataFinder;
+    private final FileMetadataService fileMetadataService;
 
-    private static final String SSE_ALGORITHM = "AES256";
-    private static final int AES256_ITERATIONS = 100_000;
-    private static final int SALT_LENGTH = 16;
     private static final int FILE_ID_LENGTH = 12;
     private static final int SIGNATURE_DURATION_IN_MINUTES = 10;
 
     public Mono<GenerateUploadUrlResponse> generateUploadUrl(GenerateUploadUrlRequest request) {
-        byte[] salt = CryptoUtils.generateSalt(SALT_LENGTH);
-        byte[] sseKeyBytes = CryptoUtils.deriveAES256Key(request.secretKey(), salt, AES256_ITERATIONS).getEncoded();
-        String sseCustomerKeyB64 = CryptoUtils.b64(sseKeyBytes);
-        String sseCustomerKeyMd5B64 = CryptoUtils.md5b64(sseKeyBytes);
+        SseCustomerKeyUtils.KeyData keyData = SseCustomerKeyUtils.deriveKeyFromProtectionPassword(request.protectionPassword());
 
         String fileId = CustomRandomUtils.randomNumericString(FILE_ID_LENGTH);
         String fileKey = this.fileKey(request.filename());
@@ -69,9 +63,9 @@ public class PresignedUrlService {
                 .putObjectRequest(PutObjectRequest.builder()
                         .bucket(appProps.awsBucketName())
                         .key(fileKey)
-                        .sseCustomerAlgorithm(SSE_ALGORITHM)
-                        .sseCustomerKey(sseCustomerKeyB64)
-                        .sseCustomerKeyMD5(sseCustomerKeyMd5B64)
+                        .sseCustomerAlgorithm(SseCustomerKeyUtils.SSE_ALGORITHM)
+                        .sseCustomerKey(keyData.sseCustomerKey())
+                        .sseCustomerKeyMD5(keyData.sseCustomerKeyMd5())
                         .build())
                 .signatureDuration(Duration.of(SIGNATURE_DURATION_IN_MINUTES, ChronoUnit.MINUTES))
                 .build();
@@ -84,8 +78,8 @@ public class PresignedUrlService {
                 .fileKey(fileKey)
                 .bucketName(appProps.awsBucketName())
                 .filename(request.filename())
-                .salt(CryptoUtils.b64(salt))
-                .sseCustomerKeyMD5(sseCustomerKeyMd5B64)
+                .salt(keyData.saltB64())
+                .sseCustomerKeyMD5(keyData.sseCustomerKeyMd5())
                 .createdAt(Instant.now())
                 .expiresAt(Instant.now().plusSeconds(request.expiresInSeconds()))
                 .build();
@@ -100,35 +94,33 @@ public class PresignedUrlService {
                 GenerateUploadUrlResponse.builder()
                         .fileId(fileId)
                         .uploadUrl(uploadUrl)
-                        .sseHeaders(this.sseHeaders(sseCustomerKeyB64, sseCustomerKeyMd5B64))
+                        .sseHeaders(this.sseHeaders(keyData.sseCustomerKey(), keyData.sseCustomerKeyMd5()))
                         .build()
         );
     }
 
     public Mono<GenerateDownloadUrlResponse> generateDownloadUrl(GenerateDownloadUrlRequest request) {
-        Mono<FileMetadataItem> fileMetadataItemMono = fileMetadataFinder.findById(request.fileId());
+        Mono<FileMetadataItem> fileMetadataItemMono = fileMetadataService.getById(request.fileId());
         return fileMetadataItemMono
                 .flatMap(fileMetadataItem -> this.checkFileExpiration(fileMetadataItem).thenReturn(fileMetadataItem))
                 .flatMap(fileMetadataItem -> {
                     String fileId = fileMetadataItem.fileId();
                     String fileKey = fileMetadataItem.fileKey();
-                    String saltB64 = fileMetadataItem.salt();
-                    byte[] salt = CryptoUtils.fromB64(saltB64);
-                    byte[] sseKeyBytes = CryptoUtils.deriveAES256Key(request.secretKey(), salt, AES256_ITERATIONS).getEncoded();
-                    String sseCustomerKeyB64 = CryptoUtils.b64(sseKeyBytes);
-                    String sseCustomerKeyMd5B64 = CryptoUtils.md5b64(sseKeyBytes);
+                    SseCustomerKeyUtils.KeyData keyData = SseCustomerKeyUtils.deriveKeyFromProtectionPasswordAndSalt(
+                            request.protectionPassword(), fileMetadataItem.salt()
+                    );
 
-                    if (!fileMetadataItem.sseCustomerKeyMD5().equals(sseCustomerKeyMd5B64)) {
-                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "wrong secret key");
+                    if (!fileMetadataItem.sseCustomerKeyMD5().equals(keyData.sseCustomerKeyMd5())) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "wrong credentials");
                     }
 
                     GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
                             .getObjectRequest(GetObjectRequest.builder()
                                     .bucket(appProps.awsBucketName())
                                     .key(fileKey)
-                                    .sseCustomerAlgorithm(SSE_ALGORITHM)
-                                    .sseCustomerKey(sseCustomerKeyB64)
-                                    .sseCustomerKeyMD5(sseCustomerKeyMd5B64)
+                                    .sseCustomerAlgorithm(SseCustomerKeyUtils.SSE_ALGORITHM)
+                                    .sseCustomerKey(keyData.sseCustomerKey())
+                                    .sseCustomerKeyMD5(keyData.sseCustomerKeyMd5())
                                     .build())
                             .signatureDuration(Duration.of(SIGNATURE_DURATION_IN_MINUTES, ChronoUnit.MINUTES))
                             .build();
@@ -136,14 +128,9 @@ public class PresignedUrlService {
                     return Mono.just(GenerateDownloadUrlResponse.builder()
                             .fileId(fileId)
                             .downloadUrl(presignedGetObjectRequest.url().toString())
-                            .sseHeaders(this.sseHeaders(sseCustomerKeyB64, sseCustomerKeyMd5B64))
+                            .sseHeaders(this.sseHeaders(keyData.sseCustomerKey(), keyData.sseCustomerKeyMd5()))
                             .build());
                 });
-    }
-
-    public Mono<FileMetadataResponse> getFileMetadata(String fileId) {
-        Mono<FileMetadataItem> fileMetadata = fileMetadataFinder.findById(fileId);
-        return fileMetadata.map(FileMetadataResponse::from);
     }
 
     private String fileKey(String filename) {
@@ -178,7 +165,7 @@ public class PresignedUrlService {
 
     private Map<String, String> sseHeaders(String sseCustomerKeyB64, String sseCustomerKeyMd5B64) {
         return Map.of(
-                "x-amz-server-side-encryption-customer-algorithm", SSE_ALGORITHM,
+                "x-amz-server-side-encryption-customer-algorithm", SseCustomerKeyUtils.SSE_ALGORITHM,
                 "x-amz-server-side-encryption-customer-key", sseCustomerKeyB64,
                 "x-amz-server-side-encryption-customer-key-MD5", sseCustomerKeyMd5B64
         );
