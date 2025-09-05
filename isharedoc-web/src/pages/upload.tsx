@@ -15,7 +15,7 @@ const UploadPage = () => {
     try {
       const fileId = await uploadService.upload(submitData.file, {
         filename: submitData.file.name,
-        secretKey: submitData.password,
+        protectionPassword: submitData.password,
         expiresInSeconds: submitData.expireInMinutes * 60
       });
       setFileId(fileId);

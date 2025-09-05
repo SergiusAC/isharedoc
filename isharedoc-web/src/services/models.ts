@@ -14,7 +14,7 @@ export interface ErrorInfo {
 
 export interface GenerateUploadUrlRequest {
   filename: string;
-  secretKey: string;
+  protectionPassword: string;
   expiresInSeconds: number;
 }
 
@@ -26,7 +26,7 @@ export interface GenerateUploadUrlResponse {
 
 export interface GenerateDownloadUrlRequest {
   fileId: string;
-  secretKey: string;
+  protectionPassword: string;
 }
 
 export interface GenerateDownloadUrlResponse {

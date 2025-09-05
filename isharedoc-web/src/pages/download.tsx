@@ -16,11 +16,11 @@ const DownloadPage = () => {
     try {
       setDownloadRequest({
         fileId: data.fileId,
-        secretKey: data.password
+        protectionPassword: data.password
       });
       const fileMetadat = await downloadService.getFileMetadata({
         fileId: data.fileId,
-        secretKey: data.password,
+        protectionPassword: data.password,
       });
       setFileMetadata(fileMetadat);
       setPromptDialogOpen(true);
@@ -39,7 +39,7 @@ const DownloadPage = () => {
     try {
       await downloadService.download({
         fileId: downloadRequest.fileId,
-        secretKey: downloadRequest.secretKey
+        protectionPassword: downloadRequest.protectionPassword
       });
       setDownloadRequest(undefined);
     } catch (err) {

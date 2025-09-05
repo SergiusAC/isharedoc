@@ -6,7 +6,7 @@ export const downloadService = {
 
   async getFileMetadata(request: GenerateDownloadUrlRequest): Promise<FileMetadatResponse> {
     const metadatResponse = await fetch(
-      `${API_URL}/presigned-urls/file-metadata?fileId=${request.fileId}&secretKey=${request.secretKey}`, 
+      `${API_URL}/presigned-urls/file-metadata?fileId=${request.fileId}&protectionPassword=${request.protectionPassword}`, 
       {
         method: "GET",
         mode: "cors",      
